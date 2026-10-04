@@ -2,16 +2,22 @@ import { realpath, stat } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import type { ConfiguredSource, Workspace } from "./types/workspace.types.js";
 import type { ResolvedSource } from "./types/source.types.js";
+import { hasErrorCode } from "./utils/hasErrorCode.js";
 
 export const SOURCE_ERRORS = {
+  sourceDoesNotExistError: (sourceId: string, configuredPath: string) =>
+    `Source ${sourceId} does not exist: ${configuredPath}.`,
   sourceMustBeDirError: (sourceId: string, sourceRoot: string) =>
     `Source ${sourceId} must be a directory: ${sourceRoot}.`,
   sharedSourceOutsideWorkspaceError: (sourceId: string, sourceRoot: string) =>
     `Shared source ${sourceId} must be inside the workspace: ${sourceRoot}.`,
 } as const;
 
-const { sourceMustBeDirError, sharedSourceOutsideWorkspaceError } =
-  SOURCE_ERRORS;
+const {
+  sourceDoesNotExistError,
+  sourceMustBeDirError,
+  sharedSourceOutsideWorkspaceError,
+} = SOURCE_ERRORS;
 
 export async function resolveSources(
   workspace: Workspace
@@ -31,7 +37,18 @@ async function resolveSource(
   source: ConfiguredSource
 ): Promise<ResolvedSource> {
   const configuredPath = resolve(workspaceRoot, source.path);
-  const sourceRoot = await realpath(configuredPath);
+  let sourceRoot: string;
+
+  try {
+    sourceRoot = await realpath(configuredPath);
+  } catch (error: unknown) {
+    if (hasErrorCode(error, "ENOENT")) {
+      throw new Error(sourceDoesNotExistError(source.id, configuredPath));
+    }
+
+    throw error;
+  }
+
   const sourceStats = await stat(sourceRoot);
 
   if (!sourceStats.isDirectory()) {

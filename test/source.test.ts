@@ -8,8 +8,11 @@ import { resolveSources, SOURCE_ERRORS } from "../src/sources.js";
 import { createTempTestDir, removeTestDir } from "./utils.js";
 
 const { configFileName } = WORKSPACE_CONSTANTS;
-const { sourceMustBeDirError, sharedSourceOutsideWorkspaceError } =
-  SOURCE_ERRORS;
+const {
+  sourceDoesNotExistError,
+  sourceMustBeDirError,
+  sharedSourceOutsideWorkspaceError,
+} = SOURCE_ERRORS;
 
 describe("resolveSources", () => {
   let directory: string;
@@ -44,6 +47,31 @@ describe("resolveSources", () => {
       ...workspace.sources[0],
       sourceRoot: await realpath(sourceDirectory),
     });
+  });
+
+  it("rejects a source path that does not exist", async () => {
+    const sourcePath = join(
+      await realpath(directory),
+      "missing-notes"
+    );
+
+    const workspace: Workspace = {
+      root: directory,
+      configPath: join(directory, configFileName),
+      sources: [
+        {
+          id: "project",
+          path: "missing-notes",
+          include: ["**/*.md"],
+          exclude: [".git/**"],
+          origin: "shared",
+        },
+      ],
+    };
+
+    await expect(resolveSources(workspace)).rejects.toThrow(
+      sourceDoesNotExistError("project", sourcePath)
+    );
   });
 
   it("rejects a source path that is a file", async () => {
@@ -91,5 +119,30 @@ describe("resolveSources", () => {
     await expect(resolveSources(workspace)).rejects.toThrow(
       sharedSourceOutsideWorkspaceError("project", sourceRoot)
     );
+  });
+
+  it("allows a local source outside the workspace", async () => {
+    const sourceRoot = await realpath(join(directory, ".."));
+
+    const workspace: Workspace = {
+      root: directory,
+      configPath: join(directory, configFileName),
+      sources: [
+        {
+          id: "personal",
+          path: "..",
+          include: ["**/*.md"],
+          exclude: [".git/**"],
+          origin: "local",
+        },
+      ],
+    };
+
+    const [source] = await resolveSources(workspace);
+
+    expect(source).toMatchObject({
+      ...workspace.sources[0],
+      sourceRoot,
+    });
   });
 });
