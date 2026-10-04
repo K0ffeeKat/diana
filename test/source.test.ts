@@ -1,13 +1,14 @@
 import { beforeEach, expect, afterEach, describe, it } from "vitest";
 import { join } from "node:path";
-import { mkdir, realpath } from "node:fs/promises";
+import { mkdir, realpath, writeFile } from "node:fs/promises";
 
-import { Workspace } from "../src/types/workspace.types.js";
+import type { Workspace } from "../src/types/workspace.types.js";
 import { WORKSPACE_CONSTANTS } from "../src/workspace.js";
-import { resolveSources } from "../src/sources.js";
+import { resolveSources, SOURCE_ERRORS } from "../src/sources.js";
 import { createTempTestDir, removeTestDir } from "./utils.js";
 
 const { configFileName } = WORKSPACE_CONSTANTS;
+const { sourceMustBeDirError } = SOURCE_ERRORS;
 
 describe("resolveSources", () => {
   let directory: string;
@@ -42,5 +43,30 @@ describe("resolveSources", () => {
       ...workspace.sources[0],
       sourceRoot: await realpath(sourceDirectory),
     });
+  });
+
+  it("rejects a source path that is a file", async () => {
+    const sourceFile = join(directory, "notes.md");
+    await writeFile(sourceFile, "# Notes\n");
+
+    const workspace: Workspace = {
+      root: directory,
+      configPath: join(directory, configFileName),
+      sources: [
+        {
+          id: "project",
+          path: "notes.md",
+          include: ["**/*.md"],
+          exclude: [".git/**"],
+          origin: "shared",
+        },
+      ],
+    };
+
+    const sourceRoot = await realpath(sourceFile);
+
+    await expect(resolveSources(workspace)).rejects.toThrow(
+      sourceMustBeDirError("project", sourceRoot)
+    );
   });
 });

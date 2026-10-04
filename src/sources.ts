@@ -1,16 +1,17 @@
-import { realpath } from "node:fs/promises";
+import { realpath, stat } from "node:fs/promises";
 import { resolve } from "node:path";
-import type {
-  ConfiguredSource,
-  Workspace,
-} from "./types/workspace.types.js";
+import type { ConfiguredSource, Workspace } from "./types/workspace.types.js";
+import type { ResolvedSource } from "./types/source.types.js";
 
-export type ResolvedSource = ConfiguredSource & {
-  sourceRoot: string;
-};
+export const SOURCE_ERRORS = {
+  sourceMustBeDirError: (sourceId: string, sourceRoot: string) =>
+    `Source ${sourceId} must be a directory: ${sourceRoot}.`,
+} as const;
+
+const { sourceMustBeDirError } = SOURCE_ERRORS;
 
 export async function resolveSources(
-  workspace: Workspace,
+  workspace: Workspace
 ): Promise<ResolvedSource[]> {
   const sourcePromises: Promise<ResolvedSource>[] = [];
 
@@ -23,10 +24,15 @@ export async function resolveSources(
 
 async function resolveSource(
   workspaceRoot: string,
-  source: ConfiguredSource,
+  source: ConfiguredSource
 ): Promise<ResolvedSource> {
   const configuredPath = resolve(workspaceRoot, source.path);
   const sourceRoot = await realpath(configuredPath);
+  const sourceStats = await stat(sourceRoot);
+
+  if (!sourceStats.isDirectory()) {
+    throw new Error(sourceMustBeDirError(source.id, sourceRoot));
+  }
 
   return {
     ...source,
