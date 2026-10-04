@@ -12,12 +12,13 @@ export const configSchema = z.object({
   sources: z.array(sourceSchema),
 });
 
-const workspaceSchema = z.object({
-  root: z.string(),
-  configPath: z.string(),
-  config: configSchema,
-});
-
 export type DianaSource = z.infer<typeof sourceSchema>;
 export type DianaConfig = z.infer<typeof configSchema>;
-export type Workspace = z.infer<typeof workspaceSchema>;
+
+export type SourceOrigin = "shared" | "local";
+export type ConfiguredSource = DianaSource & { origin: SourceOrigin };
+export type Workspace = {
+  root: string;
+  configPath: string;
+  sources: ConfiguredSource[];
+};

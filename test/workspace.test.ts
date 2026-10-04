@@ -8,7 +8,11 @@ import {
   WORKSPACE_CONSTANTS,
   WORKSPACE_ERRORS,
 } from "../src/workspace.js";
-import type { DianaConfig, Workspace } from "../src/types/workspace.types.js";
+import type {
+  ConfiguredSource,
+  DianaConfig,
+  Workspace,
+} from "../src/types/workspace.types.js";
 
 const { configFileName, localConfigFileName, internalDirName } =
   WORKSPACE_CONSTANTS;
@@ -47,7 +51,7 @@ describe("loadWorkspace", () => {
     const expectedOutput: Workspace = {
       root: directory,
       configPath: join(directory, configFileName),
-      config: validConfig,
+      sources: [],
     };
 
     expect(workspace).toMatchObject(expectedOutput);
@@ -108,7 +112,12 @@ describe("loadWorkspace", () => {
 
     const workspace = await loadWorkspace(directory);
 
-    expect(workspace.config.sources).toEqual(localConfig.sources);
+    expect(workspace.sources).toEqual([
+      {
+        ...localConfig.sources[0],
+        origin: "local",
+      },
+    ]);
   });
 
   it("trows when shared and local configs reuse a source ID", async () => {

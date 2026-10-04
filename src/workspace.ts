@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type {
+  ConfiguredSource,
   DianaConfig,
   DianaSource,
   Workspace,
@@ -51,13 +52,21 @@ export async function loadWorkspace(
 
   const localConfig = await readConfig(localConfigPath);
 
+  const configuredSharedSources = config.sources.map((i): ConfiguredSource => ({
+    ...i,
+    origin: "shared",
+  }));
+
+  const configuredLocalSources =
+    localConfig?.sources.map((i): ConfiguredSource => ({
+      ...i,
+      origin: "local",
+    })) ?? [];
+
   return {
     root: directory,
     configPath,
-    config: {
-      version: 1,
-      sources: mergeSources(config.sources, localConfig?.sources ?? []),
-    },
+    sources: mergeSources(configuredSharedSources, configuredLocalSources),
   };
 }
 
@@ -100,9 +109,9 @@ function parseConfig(contents: string, configPath: string): DianaConfig {
 }
 
 function mergeSources(
-  sharedSources: DianaSource[],
-  localSources: DianaSource[]
-): DianaSource[] {
+  sharedSources: ConfiguredSource[],
+  localSources: ConfiguredSource[]
+): ConfiguredSource[] {
   const sourceIds = new Set<string>();
   const sources = [...sharedSources, ...localSources];
 
