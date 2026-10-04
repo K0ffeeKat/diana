@@ -9,8 +9,12 @@ import { createTempTestDir, removeTestDir } from "./utils.js";
 import { WORKSPACE_CONSTANTS } from "../src/workspace.js";
 import { COMMAND_INIT_ERRORS } from "../src/commands/init.js";
 
-const { configFileName, internalDirName, internalGitIgnoreName } =
-  WORKSPACE_CONSTANTS;
+const {
+  configFileName,
+  internalDirName,
+  internalGitIgnoreName,
+  localConfigFileName,
+} = WORKSPACE_CONSTANTS;
 
 const { dianaWorkspaceExistsError } = COMMAND_INIT_ERRORS;
 
@@ -26,22 +30,25 @@ describe("diana init", () => {
 
   afterEach(async () => await removeTestDir(directory));
 
-  it("initializes diana correctly without additional arguments", async () => {
+  it("initializes diana correctly", async () => {
     execFileSync(process.execPath, [cliPath, "init"], { cwd: directory });
 
     const pathToConfig = join(directory, configFileName);
-    const pathToGitIgnore = join(
-      directory,
-      internalDirName,
-      internalGitIgnoreName
-    );
+    const internalDirPath = join(directory, internalDirName);
+    const pathToGitIgnore = join(internalDirPath, internalGitIgnoreName);
+    const localConfigPath = join(internalDirPath, localConfigFileName);
 
     expect(existsSync(pathToConfig)).toBe(true);
     expect(existsSync(pathToGitIgnore)).toBe(true);
+    expect(existsSync(localConfigPath)).toBe(true);
+
     expect(await readFile(pathToConfig, "utf8")).toBe(
       '{\n  "version": 1,\n  "sources": []\n}\n'
     );
     expect(await readFile(pathToGitIgnore, "utf8")).toBe("*\n!.gitignore\n");
+    expect(await readFile(localConfigPath, "utf8")).toBe(
+      '{\n  "version": 1,\n  "sources": []\n}\n'
+    );
   });
 
   it("throws a clear error when configuration file is present", async () => {
