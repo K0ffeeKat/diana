@@ -8,7 +8,8 @@ import { resolveSources, SOURCE_ERRORS } from "../src/sources.js";
 import { createTempTestDir, removeTestDir } from "./utils.js";
 
 const { configFileName } = WORKSPACE_CONSTANTS;
-const { sourceMustBeDirError } = SOURCE_ERRORS;
+const { sourceMustBeDirError, sharedSourceOutsideWorkspaceError } =
+  SOURCE_ERRORS;
 
 describe("resolveSources", () => {
   let directory: string;
@@ -67,6 +68,28 @@ describe("resolveSources", () => {
 
     await expect(resolveSources(workspace)).rejects.toThrow(
       sourceMustBeDirError("project", sourceRoot)
+    );
+  });
+
+  it("rejects a shared source outside the workspace", async () => {
+    const sourceRoot = await realpath(join(directory, ".."));
+
+    const workspace: Workspace = {
+      root: directory,
+      configPath: join(directory, configFileName),
+      sources: [
+        {
+          id: "project",
+          path: "..",
+          include: ["**/*.md"],
+          exclude: [".git/**"],
+          origin: "shared",
+        },
+      ],
+    };
+
+    await expect(resolveSources(workspace)).rejects.toThrow(
+      sharedSourceOutsideWorkspaceError("project", sourceRoot)
     );
   });
 });
