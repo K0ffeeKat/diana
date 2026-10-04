@@ -1,6 +1,6 @@
 import { beforeEach, expect, afterEach, describe, it } from "vitest";
 import { join } from "node:path";
-import { mkdir, realpath, writeFile } from "node:fs/promises";
+import { mkdir, realpath, symlink, writeFile } from "node:fs/promises";
 
 import type { Workspace } from "../src/types/workspace.types.js";
 import { WORKSPACE_CONSTANTS } from "../src/workspace.js";
@@ -144,5 +144,39 @@ describe("resolveSources", () => {
       ...workspace.sources[0],
       sourceRoot,
     });
+  });
+
+  it("rejects a shared source symlink that escapes the workspace", async () => {
+    const externalDirectory = await createTempTestDir();
+    const sourcePath = join(directory, "linked-notes");
+    const sourceRoot = await realpath(externalDirectory);
+
+    try {
+      await symlink(
+        externalDirectory,
+        sourcePath,
+        process.platform === "win32" ? "junction" : "dir"
+      );
+
+      const workspace: Workspace = {
+        root: directory,
+        configPath: join(directory, configFileName),
+        sources: [
+          {
+            id: "project",
+            path: "linked-notes",
+            include: ["**/*.md"],
+            exclude: [".git/**"],
+            origin: "shared",
+          },
+        ],
+      };
+
+      await expect(resolveSources(workspace)).rejects.toThrow(
+        sharedSourceOutsideWorkspaceError("project", sourceRoot)
+      );
+    } finally {
+      await removeTestDir(externalDirectory);
+    }
   });
 });
