@@ -1,5 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -13,6 +12,7 @@ import type {
   DianaConfig,
   Workspace,
 } from "../src/types/workspace.types.js";
+import { createTempTestDir, removeTestDir } from "./utils.js";
 
 const { configFileName, localConfigFileName, internalDirName } =
   WORKSPACE_CONSTANTS;
@@ -33,12 +33,10 @@ describe("loadWorkspace", () => {
   let directory: string;
 
   beforeEach(async () => {
-    directory = await mkdtemp(join(tmpdir(), "diana-workspace-"));
+    directory = await createTempTestDir();
   });
 
-  afterEach(async () => {
-    await rm(directory, { recursive: true, force: true });
-  });
+  afterEach(async () => await removeTestDir(directory));
 
   it("finds a config in the supplied directory", async () => {
     await writeFile(
