@@ -8,7 +8,7 @@ const USAGE_HINT = `\nUsage:
 diana <command>
 
 Commands:
-  init [--source <path>]
+  init
   setup
   index
   search <query...>
