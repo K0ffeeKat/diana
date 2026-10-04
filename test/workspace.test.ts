@@ -1,12 +1,24 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { loadWorkspace, WORKSPACE_CONSTANTS } from "../src/workspace";
-import { DianaConfig, Workspace } from "../src/types/workspace.types";
+import {
+  loadWorkspace,
+  WORKSPACE_CONSTANTS,
+  WORKSPACE_ERRORS,
+} from "../src/workspace.js";
+import type { DianaConfig, Workspace } from "../src/types/workspace.types.js";
 
-const { configFileName } = WORKSPACE_CONSTANTS;
+const { configFileName, localConfigFileName, internalDirName } =
+  WORKSPACE_CONSTANTS;
+
+const {
+  noConfigFileError,
+  invalidConfigError,
+  invalidJsonError,
+  duplicateSourceIdError,
+} = WORKSPACE_ERRORS;
 
 const validConfig: DianaConfig = {
   version: 1,
@@ -39,5 +51,106 @@ describe("loadWorkspace", () => {
     };
 
     expect(workspace).toMatchObject(expectedOutput);
+  });
+
+  it("throws when no config is found", async () => {
+    const expectedError = noConfigFileError(directory);
+    await expect(loadWorkspace(directory)).rejects.toThrow(expectedError);
+  });
+
+  it("throws a clear error for invalid JSON", async () => {
+    const configPath = join(directory, configFileName);
+    const expectedError = invalidJsonError(configPath);
+    await writeFile(configPath, "{invalidJSON");
+
+    await expect(loadWorkspace(directory)).rejects.toThrow(expectedError);
+  });
+
+  it("throws a clear error for invalid configuration shape", async () => {
+    const configPath = join(directory, configFileName);
+    const expectedError = invalidConfigError(configPath);
+
+    const badConfig = {
+      version: 2,
+      sources: { someKey: "someValue" },
+    };
+
+    await writeFile(configPath, JSON.stringify(badConfig));
+
+    await expect(loadWorkspace(directory)).rejects.toThrow(expectedError);
+  });
+
+  it("merges sources from an optional local config", async () => {
+    const localConfig: DianaConfig = {
+      version: 1,
+      sources: [
+        {
+          id: "personal",
+          path: "/personal-notes",
+          include: ["**/*.md"],
+          exclude: [".git/**"],
+        },
+      ],
+    };
+
+    const localConfigDirectory = join(directory, internalDirName);
+
+    await mkdir(localConfigDirectory);
+
+    await writeFile(
+      join(directory, configFileName),
+      JSON.stringify(validConfig)
+    );
+    await writeFile(
+      join(localConfigDirectory, localConfigFileName),
+      JSON.stringify(localConfig)
+    );
+
+    const workspace = await loadWorkspace(directory);
+
+    expect(workspace.config.sources).toEqual(localConfig.sources);
+  });
+
+  it("trows when shared and local configs reuse a source ID", async () => {
+    const sharedConfig: DianaConfig = {
+      version: 1,
+      sources: [
+        {
+          id: "notes",
+          path: "docs",
+          include: ["**/*.md"],
+          exclude: [".git/**"],
+        },
+      ],
+    };
+
+    const localConfig: DianaConfig = {
+      version: 1,
+      sources: [
+        {
+          id: "notes",
+          path: "/personal-notes",
+          include: ["**/*.md"],
+          exclude: [".git/**"],
+        },
+      ],
+    };
+
+    const localConfigDirectory = join(directory, internalDirName);
+
+    await mkdir(localConfigDirectory);
+
+    await writeFile(
+      join(directory, configFileName),
+      JSON.stringify(sharedConfig)
+    );
+    await writeFile(
+      join(localConfigDirectory, localConfigFileName),
+      JSON.stringify(localConfig)
+    );
+
+    await expect(loadWorkspace(directory)).rejects.toThrow(
+      duplicateSourceIdError("notes")
+    );
   });
 });
