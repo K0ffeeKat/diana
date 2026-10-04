@@ -1,0 +1,46 @@
+import { join } from "node:path";
+import { lstat, mkdir, writeFile } from "node:fs/promises";
+
+import { WORKSPACE_CONSTANTS } from "../workspace.js";
+import { configTemplate } from "../templates/config.template.js";
+import { gitIgnoreTemplate } from "../templates/gitignore.template.js";
+import { pathExists } from "../utils/pathExists.js";
+
+const { configFileName, internalDirName, internalGitIgnoreName } =
+  WORKSPACE_CONSTANTS;
+
+export const COMMAND_INIT_ERRORS = {
+  dianaWorkspaceExistsError: (workspaceRoot: string) =>
+    `\nDiana workspace already exists at ${workspaceRoot}.\nRemove ${configFileName} and ${internalDirName}/, then call <diana init> for re-initialization.\n`,
+} as const;
+
+const { dianaWorkspaceExistsError } = COMMAND_INIT_ERRORS;
+
+export async function initializeWorkspace(
+  workspaceRoot: string
+): Promise<void> {
+  const pathToSharedConfig = join(workspaceRoot, configFileName);
+  const pathToInternalDir = join(workspaceRoot, internalDirName);
+  const pathToGitIgnore = join(pathToInternalDir, internalGitIgnoreName);
+
+  const [sharedConfigExists, internalDirExists] = await Promise.all([
+    pathExists(pathToSharedConfig),
+    pathExists(pathToInternalDir),
+  ]);
+
+  if (sharedConfigExists || internalDirExists) {
+    throw new Error(dianaWorkspaceExistsError(workspaceRoot));
+  }
+
+  await writeFile(
+    pathToSharedConfig,
+    `${JSON.stringify(configTemplate, null, 2)}\n`,
+    {
+      flag: "wx",
+    }
+  );
+  await mkdir(pathToInternalDir);
+  await writeFile(pathToGitIgnore, gitIgnoreTemplate, {
+    flag: "wx",
+  });
+}

@@ -7,11 +7,13 @@ import type {
 } from "./types/workspace.types.js";
 import { configSchema } from "./types/workspace.types.js";
 import { hasErrorCode } from "./utils/hasErrorCode.js";
+import { gitIgnoreTemplate } from "./templates/gitignore.template.js";
 
 export const WORKSPACE_CONSTANTS = {
   configFileName: "diana.config.json",
   internalDirName: ".diana",
   localConfigFileName: "local.config.json",
+  internalGitIgnoreName: ".gitignore",
 } as const;
 
 const { configFileName, internalDirName, localConfigFileName } =
