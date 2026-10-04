@@ -32,7 +32,6 @@ describe("resolveSources", () => {
       configPath: join(directory, configFileName),
       sources: [
         {
-          id: "project",
           path: "notes",
           include: ["**/*.md"],
           exclude: [".git/**"],
@@ -49,18 +48,47 @@ describe("resolveSources", () => {
     });
   });
 
-  it("rejects a source path that does not exist", async () => {
-    const sourcePath = join(
-      await realpath(directory),
-      "missing-notes"
-    );
+  it("keeps only the first source for duplicate roots", async () => {
+    const sourceDirectory = join(directory, "notes");
+    await mkdir(sourceDirectory);
 
     const workspace: Workspace = {
       root: directory,
       configPath: join(directory, configFileName),
       sources: [
         {
-          id: "project",
+          path: "notes",
+          include: ["**/*.md"],
+          exclude: [".git/**"],
+          origin: "shared",
+        },
+        {
+          path: "./notes",
+          include: ["**/*.md"],
+          exclude: [".git/**"],
+          origin: "local",
+        },
+      ],
+    };
+
+    const sources = await resolveSources(workspace);
+
+    expect(sources).toEqual([
+      {
+        ...workspace.sources[0],
+        sourceRoot: await realpath(sourceDirectory),
+      },
+    ]);
+  });
+
+  it("rejects a source path that does not exist", async () => {
+    const sourcePath = join(await realpath(directory), "missing-notes");
+
+    const workspace: Workspace = {
+      root: directory,
+      configPath: join(directory, configFileName),
+      sources: [
+        {
           path: "missing-notes",
           include: ["**/*.md"],
           exclude: [".git/**"],
@@ -70,7 +98,7 @@ describe("resolveSources", () => {
     };
 
     await expect(resolveSources(workspace)).rejects.toThrow(
-      sourceDoesNotExistError("project", sourcePath)
+      sourceDoesNotExistError(sourcePath)
     );
   });
 
@@ -83,7 +111,6 @@ describe("resolveSources", () => {
       configPath: join(directory, configFileName),
       sources: [
         {
-          id: "project",
           path: "notes.md",
           include: ["**/*.md"],
           exclude: [".git/**"],
@@ -95,7 +122,7 @@ describe("resolveSources", () => {
     const sourceRoot = await realpath(sourceFile);
 
     await expect(resolveSources(workspace)).rejects.toThrow(
-      sourceMustBeDirError("project", sourceRoot)
+      sourceMustBeDirError(sourceRoot)
     );
   });
 
@@ -107,7 +134,6 @@ describe("resolveSources", () => {
       configPath: join(directory, configFileName),
       sources: [
         {
-          id: "project",
           path: "..",
           include: ["**/*.md"],
           exclude: [".git/**"],
@@ -117,7 +143,7 @@ describe("resolveSources", () => {
     };
 
     await expect(resolveSources(workspace)).rejects.toThrow(
-      sharedSourceOutsideWorkspaceError("project", sourceRoot)
+      sharedSourceOutsideWorkspaceError(sourceRoot)
     );
   });
 
@@ -129,7 +155,6 @@ describe("resolveSources", () => {
       configPath: join(directory, configFileName),
       sources: [
         {
-          id: "personal",
           path: "..",
           include: ["**/*.md"],
           exclude: [".git/**"],
@@ -163,7 +188,6 @@ describe("resolveSources", () => {
         configPath: join(directory, configFileName),
         sources: [
           {
-            id: "project",
             path: "linked-notes",
             include: ["**/*.md"],
             exclude: [".git/**"],
@@ -173,7 +197,7 @@ describe("resolveSources", () => {
       };
 
       await expect(resolveSources(workspace)).rejects.toThrow(
-        sharedSourceOutsideWorkspaceError("project", sourceRoot)
+        sharedSourceOutsideWorkspaceError(sourceRoot)
       );
     } finally {
       await removeTestDir(externalDirectory);

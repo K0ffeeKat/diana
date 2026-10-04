@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 export const sourceSchema = z.object({
-  id: z.string().min(1),
   path: z.string().min(1),
   include: z.array(z.string()),
   exclude: z.array(z.string()),

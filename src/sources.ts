@@ -5,12 +5,12 @@ import type { ResolvedSource } from "./types/source.types.js";
 import { hasErrorCode } from "./utils/hasErrorCode.js";
 
 export const SOURCE_ERRORS = {
-  sourceDoesNotExistError: (sourceId: string, configuredPath: string) =>
-    `Source ${sourceId} does not exist: ${configuredPath}.`,
-  sourceMustBeDirError: (sourceId: string, sourceRoot: string) =>
-    `Source ${sourceId} must be a directory: ${sourceRoot}.`,
-  sharedSourceOutsideWorkspaceError: (sourceId: string, sourceRoot: string) =>
-    `Shared source ${sourceId} must be inside the workspace: ${sourceRoot}.`,
+  sourceDoesNotExistError: (configuredPath: string) =>
+    `Source does not exist: ${configuredPath}.`,
+  sourceMustBeDirError: (sourceRoot: string) =>
+    `Source must be a directory: ${sourceRoot}.`,
+  sharedSourceOutsideWorkspaceError: (sourceRoot: string) =>
+    `Shared source must be inside the workspace: ${sourceRoot}.`,
 } as const;
 
 const {
@@ -29,7 +29,20 @@ export async function resolveSources(
     sourcePromises.push(resolveSource(workspaceRoot, source));
   });
 
-  return Promise.all(sourcePromises);
+  const resolvedSources = await Promise.all(sourcePromises);
+  const sourceRoots = new Set<string>();
+  const uniqueSources: ResolvedSource[] = [];
+
+  resolvedSources.forEach((source) => {
+    if (sourceRoots.has(source.sourceRoot)) {
+      return;
+    }
+
+    sourceRoots.add(source.sourceRoot);
+    uniqueSources.push(source);
+  });
+
+  return uniqueSources;
 }
 
 async function resolveSource(
@@ -43,7 +56,7 @@ async function resolveSource(
     sourceRoot = await realpath(configuredPath);
   } catch (error: unknown) {
     if (hasErrorCode(error, "ENOENT")) {
-      throw new Error(sourceDoesNotExistError(source.id, configuredPath));
+      throw new Error(sourceDoesNotExistError(configuredPath));
     }
 
     throw error;
@@ -52,14 +65,11 @@ async function resolveSource(
   const sourceStats = await stat(sourceRoot);
 
   if (!sourceStats.isDirectory()) {
-    throw new Error(sourceMustBeDirError(source.id, sourceRoot));
+    throw new Error(sourceMustBeDirError(sourceRoot));
   }
 
-  if (
-    source.origin === "shared" &&
-    !isPathInside(workspaceRoot, sourceRoot)
-  ) {
-    throw new Error(sharedSourceOutsideWorkspaceError(source.id, sourceRoot));
+  if (source.origin === "shared" && !isPathInside(workspaceRoot, sourceRoot)) {
+    throw new Error(sharedSourceOutsideWorkspaceError(sourceRoot));
   }
 
   return {

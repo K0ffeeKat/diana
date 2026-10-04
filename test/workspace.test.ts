@@ -7,22 +7,14 @@ import {
   WORKSPACE_CONSTANTS,
   WORKSPACE_ERRORS,
 } from "../src/workspace.js";
-import type {
-  ConfiguredSource,
-  DianaConfig,
-  Workspace,
-} from "../src/types/workspace.types.js";
+import type { DianaConfig, Workspace } from "../src/types/workspace.types.js";
 import { createTempTestDir, removeTestDir } from "./utils.js";
 
 const { configFileName, localConfigFileName, internalDirName } =
   WORKSPACE_CONSTANTS;
 
-const {
-  noConfigFileError,
-  invalidConfigError,
-  invalidJsonError,
-  duplicateSourceIdError,
-} = WORKSPACE_ERRORS;
+const { noConfigFileError, invalidConfigError, invalidJsonError } =
+  WORKSPACE_ERRORS;
 
 const validConfig: DianaConfig = {
   version: 1,
@@ -87,7 +79,6 @@ describe("loadWorkspace", () => {
       version: 1,
       sources: [
         {
-          id: "personal",
           path: "/personal-notes",
           include: ["**/*.md"],
           exclude: [".git/**"],
@@ -116,48 +107,5 @@ describe("loadWorkspace", () => {
         origin: "local",
       },
     ]);
-  });
-
-  it("trows when shared and local configs reuse a source ID", async () => {
-    const sharedConfig: DianaConfig = {
-      version: 1,
-      sources: [
-        {
-          id: "notes",
-          path: "docs",
-          include: ["**/*.md"],
-          exclude: [".git/**"],
-        },
-      ],
-    };
-
-    const localConfig: DianaConfig = {
-      version: 1,
-      sources: [
-        {
-          id: "notes",
-          path: "/personal-notes",
-          include: ["**/*.md"],
-          exclude: [".git/**"],
-        },
-      ],
-    };
-
-    const localConfigDirectory = join(directory, internalDirName);
-
-    await mkdir(localConfigDirectory);
-
-    await writeFile(
-      join(directory, configFileName),
-      JSON.stringify(sharedConfig)
-    );
-    await writeFile(
-      join(localConfigDirectory, localConfigFileName),
-      JSON.stringify(localConfig)
-    );
-
-    await expect(loadWorkspace(directory)).rejects.toThrow(
-      duplicateSourceIdError("notes")
-    );
   });
 });

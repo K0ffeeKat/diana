@@ -3,7 +3,6 @@ import { join, resolve } from "node:path";
 import type {
   ConfiguredSource,
   DianaConfig,
-  DianaSource,
   Workspace,
 } from "./types/workspace.types.js";
 import { configSchema } from "./types/workspace.types.js";
@@ -25,16 +24,10 @@ export const WORKSPACE_ERRORS = {
     `Invalid Diana configuration at ${configPath}: invalid JSON.`,
   invalidConfigError: (configPath: string) =>
     `Invalid Diana configuration at ${configPath}`,
-  duplicateSourceIdError: (id: string) =>
-    `Duplicate source ID ${id}. Source IDs must be unique`,
 } as const;
 
-const {
-  noConfigFileError,
-  invalidJsonError,
-  invalidConfigError,
-  duplicateSourceIdError,
-} = WORKSPACE_ERRORS;
+const { noConfigFileError, invalidJsonError, invalidConfigError } =
+  WORKSPACE_ERRORS;
 
 export async function loadWorkspace(
   startDirectory: string
@@ -52,21 +45,23 @@ export async function loadWorkspace(
 
   const localConfig = await readConfig(localConfigPath);
 
-  const configuredSharedSources = config.sources.map((i): ConfiguredSource => ({
-    ...i,
-    origin: "shared",
-  }));
+  const configuredSharedSources = config.sources.map(
+    (source): ConfiguredSource => ({
+      ...source,
+      origin: "shared",
+    })
+  );
 
   const configuredLocalSources =
-    localConfig?.sources.map((i): ConfiguredSource => ({
-      ...i,
+    localConfig?.sources.map((source): ConfiguredSource => ({
+      ...source,
       origin: "local",
     })) ?? [];
 
   return {
     root: directory,
     configPath,
-    sources: mergeSources(configuredSharedSources, configuredLocalSources),
+    sources: [...configuredSharedSources, ...configuredLocalSources],
   };
 }
 
@@ -106,22 +101,4 @@ function parseConfig(contents: string, configPath: string): DianaConfig {
   }
 
   return parsedConfig.data;
-}
-
-function mergeSources(
-  sharedSources: ConfiguredSource[],
-  localSources: ConfiguredSource[]
-): ConfiguredSource[] {
-  const sourceIds = new Set<string>();
-  const sources = [...sharedSources, ...localSources];
-
-  sources.forEach(({ id }) => {
-    if (sourceIds.has(id)) {
-      throw new Error(duplicateSourceIdError(id));
-    }
-
-    sourceIds.add(id);
-  });
-
-  return sources;
 }
