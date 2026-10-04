@@ -37,22 +37,16 @@ export async function initializeWorkspace(
     throw new Error(dianaWorkspaceExistsError(workspaceRoot));
   }
 
-  await writeFile(
-    pathToSharedConfig,
-    `${JSON.stringify(configTemplate, null, 2)}\n`,
-    {
-      flag: "wx",
-    }
-  );
+  const sharedConfig = `${JSON.stringify(configTemplate, null, 2)}\n`;
+
+  await writeFile(pathToSharedConfig, sharedConfig, {
+    flag: "wx",
+  });
   await mkdir(pathToInternalDir);
   await writeFile(pathToGitIgnore, gitIgnoreTemplate, {
     flag: "wx",
   });
-  await writeFile(
-    pathToLocalConfig,
-    `${JSON.stringify(configTemplate, null, 2)}\n`,
-    {
-      flag: "wx",
-    }
-  );
+  await writeFile(pathToLocalConfig, sharedConfig, {
+    flag: "wx",
+  });
 }
