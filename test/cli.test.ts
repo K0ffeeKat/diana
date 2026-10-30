@@ -168,4 +168,144 @@ describe("diana index", () => {
 
     expect(throwable).toThrow(noSourcesConfiguredError);
   });
+
+  it("indexes Markdown sections for search", async () => {
+    execFileSync(process.execPath, [cliPath, "init"], { cwd: directory });
+    const notesDirectory = join(directory, "notes");
+    await mkdir(notesDirectory);
+    await writeFile(
+      join(notesDirectory, "architecture.md"),
+      "# Architecture\n\n## Token Rotation\n\nTamarind is the unique retrieval term.\n"
+    );
+
+    const config: DianaConfig = {
+      version: 1,
+      sources: [
+        {
+          path: notesDirectory,
+          include: ["**/*.md"],
+          exclude: [],
+        },
+      ],
+    };
+
+    await writeFile(
+      join(directory, configFileName),
+      JSON.stringify(config, null, 2)
+    );
+
+    execFileSync(process.execPath, [cliPath, "index"], { cwd: directory });
+
+    const output = execFileSync(
+      process.execPath,
+      [cliPath, "search", "tamarind"],
+      { cwd: directory, encoding: "utf8" }
+    );
+    const results = JSON.parse(output);
+
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({
+      path: "architecture.md",
+      title: "Architecture",
+      heading: "Token Rotation",
+      anchor: "token-rotation",
+    });
+    expect(results[0].excerpt).toContain("Tamarind");
+  });
+
+  it("does not index protected or hidden directories", async () => {
+    execFileSync(process.execPath, [cliPath, "init"], { cwd: directory });
+    const notesDirectory = join(directory, "notes");
+    await mkdir(join(notesDirectory, ".git"), { recursive: true });
+    await mkdir(join(notesDirectory, ".diana"), { recursive: true });
+    await mkdir(join(notesDirectory, ".obsidian"), { recursive: true });
+    await writeFile(
+      join(notesDirectory, ".git", "secret.md"),
+      "This mustneverbeindexed."
+    );
+    await writeFile(
+      join(notesDirectory, ".diana", "secret.md"),
+      "This mustneverbeindexed."
+    );
+    await writeFile(
+      join(notesDirectory, ".obsidian", "secret.md"),
+      "This mustneverbeindexed."
+    );
+
+    const config: DianaConfig = {
+      version: 1,
+      sources: [
+        {
+          path: notesDirectory,
+          include: ["**/*.md"],
+          exclude: [],
+        },
+      ],
+    };
+
+    await writeFile(
+      join(directory, configFileName),
+      JSON.stringify(config, null, 2)
+    );
+
+    execFileSync(process.execPath, [cliPath, "index"], { cwd: directory });
+
+    const output = execFileSync(
+      process.execPath,
+      [cliPath, "search", "mustneverbeindexed"],
+      { cwd: directory, encoding: "utf8" }
+    );
+
+    expect(JSON.parse(output)).toEqual([]);
+  });
+
+  it("applies include and exclude patterns", async () => {
+    execFileSync(process.execPath, [cliPath, "init"], { cwd: directory });
+    const notesDirectory = join(directory, "notes");
+    await mkdir(join(notesDirectory, "nested"), { recursive: true });
+    await writeFile(
+      join(notesDirectory, "included.md"),
+      "This includableterm should be searchable."
+    );
+    await writeFile(
+      join(notesDirectory, "excluded.md"),
+      "This excludedterm should not be searchable."
+    );
+    await writeFile(
+      join(notesDirectory, "nested", "excluded.md"),
+      "This excludedterm should not be searchable."
+    );
+
+    const config: DianaConfig = {
+      version: 1,
+      sources: [
+        {
+          path: notesDirectory,
+          include: ["**/*.md"],
+          exclude: ["excluded.md", "nested/**"],
+        },
+      ],
+    };
+
+    await writeFile(
+      join(directory, configFileName),
+      JSON.stringify(config, null, 2)
+    );
+
+    execFileSync(process.execPath, [cliPath, "index"], { cwd: directory });
+
+    const includedOutput = execFileSync(
+      process.execPath,
+      [cliPath, "search", "includableterm"],
+      { cwd: directory, encoding: "utf8" }
+    );
+    const excludedOutput = execFileSync(
+      process.execPath,
+      [cliPath, "search", "excludedterm"],
+      { cwd: directory, encoding: "utf8" }
+    );
+
+    expect(JSON.parse(includedOutput)).toHaveLength(1);
+    expect(JSON.parse(excludedOutput)).toEqual([]);
+  });
 });

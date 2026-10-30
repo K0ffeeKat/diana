@@ -1,6 +1,6 @@
-import { DatabaseSync } from "node:sqlite";
 import { join } from "node:path";
 
+import { updateIndex } from "../indexer.js";
 import { resolveSources } from "../sources.js";
 import { WORKSPACE_CONSTANTS, loadWorkspace } from "../workspace.js";
 
@@ -20,10 +20,8 @@ export async function indexWorkspace(workspaceRoot: string): Promise<void> {
     throw new Error(noSourcesConfiguredError);
   }
 
-  await resolveSources(workspace);
+  const sources = await resolveSources(workspace);
 
   const databasePath = join(workspace.root, internalDirName, databaseFileName);
-  const database = new DatabaseSync(databasePath);
-
-  database.close();
+  await updateIndex(databasePath, sources);
 }

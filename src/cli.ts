@@ -2,8 +2,9 @@
 
 import { initializeWorkspace } from "./commands/init.js";
 import { indexWorkspace } from "./commands/index.js";
+import { searchWorkspace } from "./commands/search.js";
 
-const [command] = process.argv.slice(2);
+const [command, ...arguments_] = process.argv.slice(2);
 
 const USAGE_HINT = `\nUsage:
 diana <command>
@@ -31,6 +32,11 @@ switch (command) {
   case "index":
     await indexWorkspace(process.cwd());
     break;
+  case "search": {
+    const results = await searchWorkspace(process.cwd(), arguments_.join(" "));
+    process.stdout.write(`${JSON.stringify(results)}\n`);
+    break;
+  }
   default:
     process.stderr.write(USAGE_ERROR);
     process.exitCode = 1;
