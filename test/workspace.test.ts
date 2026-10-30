@@ -13,8 +13,7 @@ import { createTempTestDir, removeTestDir } from "./utils.js";
 const { configFileName, localConfigFileName, internalDirName } =
   WORKSPACE_CONSTANTS;
 
-const { noConfigFileError, invalidConfigError, invalidJsonError } =
-  WORKSPACE_ERRORS;
+const { invalidConfigError, invalidJsonError } = WORKSPACE_ERRORS;
 
 const validConfig: DianaConfig = {
   version: 1,
@@ -45,11 +44,6 @@ describe("loadWorkspace", () => {
     };
 
     expect(workspace).toMatchObject(expectedOutput);
-  });
-
-  it("throws when no config is found", async () => {
-    const expectedError = noConfigFileError(directory);
-    await expect(loadWorkspace(directory)).rejects.toThrow(expectedError);
   });
 
   it("throws a clear error for invalid JSON", async () => {

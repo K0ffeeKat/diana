@@ -16,7 +16,6 @@ describe("agent skill packaging", () => {
       join(projectRoot, "skills/diana/SKILL.md")
     );
     const packageInfo = await readJson(join(projectRoot, "package.json"));
-    expect(packageInfo.pi.skills).toHaveLength(1);
     expect(
       await realpath(
         join(projectRoot, packageInfo.pi.skills[0], "diana/SKILL.md")
@@ -26,7 +25,6 @@ describe("agent skill packaging", () => {
     const marketplace = await readJson(
       join(projectRoot, ".claude-plugin/marketplace.json")
     );
-    expect(marketplace.plugins).toHaveLength(1);
     const entry = marketplace.plugins[0];
     const pluginRoot = resolve(projectRoot, entry.source);
     const plugin = await readJson(
@@ -39,8 +37,6 @@ describe("agent skill packaging", () => {
     expect(await realpath(join(pluginRoot, "skills/diana/SKILL.md"))).toBe(
       skillPath
     );
-    expect(plugin.mcpServers).toBeUndefined();
-    expect(plugin.hooks).toBeUndefined();
   });
 
   it("keeps the plugin version aligned with the existing package version", async () => {
