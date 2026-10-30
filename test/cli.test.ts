@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { join } from "node:path";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
@@ -24,6 +24,20 @@ const { noSourcesConfiguredError } = COMMAND_INDEX_ERRORS;
 
 const projectRoot = fileURLToPath(new URL("..", import.meta.url));
 const cliPath = join(projectRoot, "dist", "cli.js");
+
+function expectCliFailure(directory: string, command: string, message: string) {
+  const result = spawnSync(process.execPath, [cliPath, command], {
+    cwd: directory,
+    encoding: "utf8",
+    timeout: 10_000,
+  });
+
+  expect(result.error).toBeUndefined();
+  expect(result.signal).toBeNull();
+  expect(result.status).toBe(1);
+  expect(result.stdout).toBe("");
+  expect(result.stderr).toBe(`Error: ${message.trim()}\n`);
+}
 
 describe("diana init", () => {
   let directory: string;
@@ -57,30 +71,26 @@ describe("diana init", () => {
     );
   });
 
-  it("throws a clear error when configuration file is present", async () => {
+  it("reports a clear error when configuration file is present", async () => {
     await writeFile(
       join(directory, configFileName),
       JSON.stringify({ version: 1, sources: [] })
     );
 
-    const script = () => {
-      execFileSync(process.execPath, [cliPath, "init"], { cwd: directory });
-    };
-
-    expect(script).toThrow(
+    expectCliFailure(
+      directory,
+      "init",
       dianaWorkspaceExistsError(await realpath(directory))
     );
   });
 
-  it("throws a clear error when .diana/ is present", async () => {
+  it("reports a clear error when .diana/ is present", async () => {
     const internalDirPath = join(directory, internalDirName);
     await mkdir(internalDirPath);
 
-    const script = () => {
-      execFileSync(process.execPath, [cliPath, "init"], { cwd: directory });
-    };
-
-    expect(script).toThrow(
+    expectCliFailure(
+      directory,
+      "init",
       dianaWorkspaceExistsError(await realpath(directory))
     );
   });
@@ -152,21 +162,17 @@ describe("diana index", () => {
       JSON.stringify(configOverride, null, 2)
     );
 
-    const throwable = () => {
-      execFileSync(process.execPath, [cliPath, "index"], { cwd: directory });
-    };
-
-    expect(throwable).toThrow("Source does not exist");
+    expectCliFailure(
+      directory,
+      "index",
+      `Source does not exist: ${dummyKnoweldgeBasePath}.`
+    );
   });
 
   it("throws an error when config has empty sources", async () => {
     execFileSync(process.execPath, [cliPath, "init"], { cwd: directory });
 
-    const throwable = () => {
-      execFileSync(process.execPath, [cliPath, "index"], { cwd: directory });
-    };
-
-    expect(throwable).toThrow(noSourcesConfiguredError);
+    expectCliFailure(directory, "index", noSourcesConfiguredError);
   });
 
   it("indexes Markdown sections for search", async () => {
