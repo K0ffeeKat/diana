@@ -10,7 +10,8 @@
     "ai",
     "agent",
     "search",
-    "data"
+    "data",
+    "pi-package"
   ],
   "author": "koffeekat",
   "type": "module",
@@ -24,6 +25,11 @@
   },
   "bin": {
     "diana": "./dist/cli.js"
+  },
+  "pi": {
+    "skills": [
+      "./skills"
+    ]
   },
   "devDependencies": {
     "@types/node": "^26.6.4",

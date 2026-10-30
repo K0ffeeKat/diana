@@ -1,0 +1,9 @@
+{
+  "name": "diana",
+  "version": "0.1.0-alpha.1",
+  "description": "Search local Markdown knowledge through the read-only Diana CLI.",
+  "author": {
+    "name": "KoffeeKat"
+  },
+  "repository": "https://github.com/K0ffeeKat/diana"
+}

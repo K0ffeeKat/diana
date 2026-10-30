@@ -1,0 +1,13 @@
+{
+  "name": "koffeeapps-diana",
+  "description": "Diana's shared knowledge-retrieval skill for Claude Code.",
+  "owner": {
+    "name": "KoffeeKat"
+  },
+  "plugins": [
+    {
+      "name": "diana",
+      "source": "./"
+    }
+  ]
+}
