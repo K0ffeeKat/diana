@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { lstat, mkdir, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 
 import { WORKSPACE_CONSTANTS } from "../workspace.js";
 import { configTemplate } from "../templates/config.template.js";

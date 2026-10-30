@@ -1,3 +1,4 @@
-export const gitIgnoreTemplate = `*
+export const gitIgnoreTemplate = `index.sqlite
+*
 !.gitignore
 `;

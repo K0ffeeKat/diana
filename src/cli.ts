@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { initializeWorkspace } from "./commands/init.js";
+import { indexWorkspace } from "./commands/index.js";
 
 const [command] = process.argv.slice(2);
 
@@ -26,6 +27,9 @@ switch (command) {
     break;
   case "init":
     await initializeWorkspace(process.cwd());
+    break;
+  case "index":
+    await indexWorkspace(process.cwd());
     break;
   default:
     process.stderr.write(USAGE_ERROR);
