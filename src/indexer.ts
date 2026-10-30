@@ -1,11 +1,21 @@
 import { createHash } from "node:crypto";
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { basename, posix, relative, sep } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import type { ResolvedSource } from "./types/source.types.js";
 
 const PROTECTED_DIRECTORY_NAMES = new Set([".diana", ".git"]);
+const SCHEMA_VERSION = 1;
+const MAX_INDEX_FILE_BYTES = 1024 * 1024;
+
+export const INDEX_ERRORS = {
+  invalidTextError: (filePath: string) =>
+    `Source file is not valid UTF-8: ${filePath}.`,
+  fileTooLargeError: (filePath: string) =>
+    `Source file exceeds the ${MAX_INDEX_FILE_BYTES}-byte index limit: ${filePath}.`,
+  schemaRebuildError: "Index schema changed; rebuilding derived index.",
+} as const;
 
 export type IndexedSection = {
   anchor: string;
@@ -130,6 +140,16 @@ export function splitMarkdownIntoSections(
 }
 
 function createSchema(database: DatabaseSync): void {
+  const version = database.prepare("PRAGMA user_version").get() as {
+    user_version: number;
+  };
+
+  if (version.user_version !== SCHEMA_VERSION) {
+    database.exec(
+      "DROP TABLE IF EXISTS sections; DROP TABLE IF EXISTS documents;"
+    );
+  }
+
   database.exec(`
     CREATE TABLE IF NOT EXISTS documents (
       source_root TEXT NOT NULL,
@@ -147,7 +167,24 @@ function createSchema(database: DatabaseSync): void {
       body,
       tokenize = 'unicode61'
     );
+    PRAGMA user_version = ${SCHEMA_VERSION};
   `);
+}
+
+async function readMarkdownFile(filePath: string): Promise<string> {
+  const fileStats = await stat(filePath);
+
+  if (fileStats.size > MAX_INDEX_FILE_BYTES) {
+    throw new Error(INDEX_ERRORS.fileTooLargeError(filePath));
+  }
+
+  const content = await readFile(filePath);
+
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(content);
+  } catch {
+    throw new Error(INDEX_ERRORS.invalidTextError(filePath));
+  }
 }
 
 async function indexSource(
@@ -161,7 +198,7 @@ async function indexSource(
     const documentPath = toDocumentPath(source.sourceRoot, filePath);
     currentPaths.add(documentPath);
 
-    const markdown = await readFile(filePath, "utf8");
+    const markdown = await readMarkdownFile(filePath);
     const sha256 = createHash("sha256").update(markdown).digest("hex");
     const existingDocument = database
       .prepare(

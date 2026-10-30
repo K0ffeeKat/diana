@@ -1,5 +1,5 @@
 import { realpath, stat } from "node:fs/promises";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { basename, isAbsolute, posix, relative, resolve, sep } from "node:path";
 import type { ConfiguredSource, Workspace } from "./types/workspace.types.js";
 import type { ResolvedSource } from "./types/source.types.js";
 import { hasErrorCode } from "./utils/hasErrorCode.js";
@@ -11,12 +11,21 @@ export const SOURCE_ERRORS = {
     `Source must be a directory: ${sourceRoot}.`,
   sharedSourceOutsideWorkspaceError: (sourceRoot: string) =>
     `Shared source must be inside the workspace: ${sourceRoot}.`,
+  protectedSourceRootError: (sourceRoot: string) =>
+    `Source root cannot be .git or .diana: ${sourceRoot}.`,
+  overlappingSourceRootsError: (firstRoot: string, secondRoot: string) =>
+    `Source roots overlap: ${firstRoot} and ${secondRoot}.`,
+  invalidGlobPatternError: (pattern: string) =>
+    `Invalid source glob pattern: ${pattern}.`,
 } as const;
 
 const {
   sourceDoesNotExistError,
   sourceMustBeDirError,
   sharedSourceOutsideWorkspaceError,
+  protectedSourceRootError,
+  overlappingSourceRootsError,
+  invalidGlobPatternError,
 } = SOURCE_ERRORS;
 
 export async function resolveSources(
@@ -26,6 +35,8 @@ export async function resolveSources(
   const workspaceRoot = await realpath(workspace.root);
 
   workspace.sources.forEach((source) => {
+    validatePatterns(source.include);
+    validatePatterns(source.exclude);
     sourcePromises.push(resolveSource(workspaceRoot, source));
   });
 
@@ -36,6 +47,21 @@ export async function resolveSources(
   resolvedSources.forEach((source) => {
     if (sourceRoots.has(source.sourceRoot)) {
       return;
+    }
+
+    const overlappingSource = uniqueSources.find(
+      (existingSource) =>
+        isPathInside(existingSource.sourceRoot, source.sourceRoot) ||
+        isPathInside(source.sourceRoot, existingSource.sourceRoot)
+    );
+
+    if (overlappingSource !== undefined) {
+      throw new Error(
+        overlappingSourceRootsError(
+          overlappingSource.sourceRoot,
+          source.sourceRoot
+        )
+      );
     }
 
     sourceRoots.add(source.sourceRoot);
@@ -68,6 +94,10 @@ async function resolveSource(
     throw new Error(sourceMustBeDirError(sourceRoot));
   }
 
+  if ([".diana", ".git"].includes(basename(sourceRoot))) {
+    throw new Error(protectedSourceRootError(sourceRoot));
+  }
+
   if (source.origin === "shared" && !isPathInside(workspaceRoot, sourceRoot)) {
     throw new Error(sharedSourceOutsideWorkspaceError(sourceRoot));
   }
@@ -76,6 +106,20 @@ async function resolveSource(
     ...source,
     sourceRoot,
   };
+}
+
+function validatePatterns(patterns: string[]): void {
+  for (const pattern of patterns) {
+    if (pattern.includes("\0")) {
+      throw new Error(invalidGlobPatternError(pattern));
+    }
+
+    try {
+      posix.matchesGlob("", pattern);
+    } catch {
+      throw new Error(invalidGlobPatternError(pattern));
+    }
+  }
 }
 
 function isPathInside(parentPath: string, childPath: string): boolean {

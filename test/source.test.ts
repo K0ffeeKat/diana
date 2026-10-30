@@ -12,6 +12,9 @@ const {
   sourceDoesNotExistError,
   sourceMustBeDirError,
   sharedSourceOutsideWorkspaceError,
+  protectedSourceRootError,
+  overlappingSourceRootsError,
+  invalidGlobPatternError,
 } = SOURCE_ERRORS;
 
 describe("resolveSources", () => {
@@ -79,6 +82,84 @@ describe("resolveSources", () => {
         sourceRoot: await realpath(sourceDirectory),
       },
     ]);
+  });
+
+  it("rejects a protected source root", async () => {
+    const sourceDirectory = join(directory, ".git");
+    await mkdir(sourceDirectory);
+
+    const workspace: Workspace = {
+      root: directory,
+      configPath: join(directory, configFileName),
+      sources: [
+        {
+          path: ".git",
+          include: ["**/*.md"],
+          exclude: [],
+          origin: "shared",
+        },
+      ],
+    };
+
+    const sourceRoot = await realpath(sourceDirectory);
+
+    await expect(resolveSources(workspace)).rejects.toThrow(
+      protectedSourceRootError(sourceRoot)
+    );
+  });
+
+  it("rejects overlapping source roots", async () => {
+    const sourceDirectory = join(directory, "notes");
+    const nestedSourceDirectory = join(sourceDirectory, "work");
+    await mkdir(nestedSourceDirectory, { recursive: true });
+
+    const workspace: Workspace = {
+      root: directory,
+      configPath: join(directory, configFileName),
+      sources: [
+        {
+          path: "notes",
+          include: ["**/*.md"],
+          exclude: [],
+          origin: "shared",
+        },
+        {
+          path: "notes/work",
+          include: ["**/*.md"],
+          exclude: [],
+          origin: "shared",
+        },
+      ],
+    };
+
+    const sourceRoot = await realpath(sourceDirectory);
+    const nestedSourceRoot = await realpath(nestedSourceDirectory);
+
+    await expect(resolveSources(workspace)).rejects.toThrow(
+      overlappingSourceRootsError(sourceRoot, nestedSourceRoot)
+    );
+  });
+
+  it("rejects malformed glob patterns", async () => {
+    const sourceDirectory = join(directory, "notes");
+    await mkdir(sourceDirectory);
+
+    const workspace: Workspace = {
+      root: directory,
+      configPath: join(directory, configFileName),
+      sources: [
+        {
+          path: "notes",
+          include: ["\0"],
+          exclude: [],
+          origin: "shared",
+        },
+      ],
+    };
+
+    await expect(resolveSources(workspace)).rejects.toThrow(
+      invalidGlobPatternError("\0")
+    );
   });
 
   it("rejects a source path that does not exist", async () => {
