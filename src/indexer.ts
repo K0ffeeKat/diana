@@ -51,6 +51,37 @@ export async function findMarkdownFiles(
   return markdownFiles;
 }
 
+export function extractMarkdownSection(
+  markdown: string,
+  requestedAnchor: string
+): string | undefined {
+  const lines = markdown.replace(/\r\n?/g, "\n").split("\n");
+  const anchorCounts = new Map<string, number>();
+  let sectionStart: number | undefined;
+  let sectionAnchor: string | undefined;
+
+  for (const [lineIndex, line] of lines.entries()) {
+    const heading = parseHeading(line);
+
+    if (heading === undefined) {
+      continue;
+    }
+
+    if (sectionAnchor === requestedAnchor && sectionStart !== undefined) {
+      return lines.slice(sectionStart, lineIndex).join("\n");
+    }
+
+    sectionStart = lineIndex;
+    sectionAnchor = createAnchor(heading, anchorCounts);
+  }
+
+  if (sectionAnchor === requestedAnchor && sectionStart !== undefined) {
+    return lines.slice(sectionStart).join("\n");
+  }
+
+  return undefined;
+}
+
 export function splitMarkdownIntoSections(
   markdown: string,
   filePath: string

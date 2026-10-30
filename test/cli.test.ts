@@ -309,3 +309,88 @@ describe("diana index", () => {
     expect(JSON.parse(excludedOutput)).toEqual([]);
   });
 });
+
+describe("diana read", () => {
+  let directory: string;
+
+  beforeEach(async () => {
+    directory = await createTempTestDir();
+  });
+
+  afterEach(async () => await removeTestDir(directory));
+
+  it("returns a faithful requested section", async () => {
+    execFileSync(process.execPath, [cliPath, "init"], { cwd: directory });
+    const notesDirectory = join(directory, "notes");
+    const notePath = join(notesDirectory, "architecture.md");
+    await mkdir(notesDirectory);
+    await writeFile(
+      notePath,
+      "# Architecture\n\nIntroduction text.\n\n## Token Rotation\n\nTamarind is the rotation term.\n\n## Unrelated\n\nThis must not be returned.\n"
+    );
+
+    const config: DianaConfig = {
+      version: 1,
+      sources: [
+        {
+          path: notesDirectory,
+          include: ["**/*.md"],
+          exclude: [],
+        },
+      ],
+    };
+
+    await writeFile(
+      join(directory, configFileName),
+      JSON.stringify(config, null, 2)
+    );
+
+    const output = execFileSync(
+      process.execPath,
+      [cliPath, "read", notePath, "--section", "token-rotation"],
+      { cwd: directory, encoding: "utf8" }
+    );
+    const result = JSON.parse(output);
+
+    expect(result).toMatchObject({
+      path: "architecture.md",
+      truncated: false,
+    });
+    expect(result.content).toContain("## Token Rotation");
+    expect(result.content).toContain("Tamarind is the rotation term.");
+    expect(result.content).not.toContain("## Unrelated");
+  });
+
+  it("bounds read output", async () => {
+    execFileSync(process.execPath, [cliPath, "init"], { cwd: directory });
+    const notesDirectory = join(directory, "notes");
+    const notePath = join(notesDirectory, "large.md");
+    await mkdir(notesDirectory);
+    await writeFile(notePath, "x".repeat(70 * 1024));
+
+    const config: DianaConfig = {
+      version: 1,
+      sources: [
+        {
+          path: notesDirectory,
+          include: ["**/*.md"],
+          exclude: [],
+        },
+      ],
+    };
+
+    await writeFile(
+      join(directory, configFileName),
+      JSON.stringify(config, null, 2)
+    );
+
+    const output = execFileSync(process.execPath, [cliPath, "read", notePath], {
+      cwd: directory,
+      encoding: "utf8",
+    });
+    const result = JSON.parse(output);
+
+    expect(result.truncated).toBe(true);
+    expect(result.content).toHaveLength(64 * 1024);
+  });
+});
