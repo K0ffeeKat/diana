@@ -43,7 +43,7 @@ diana index
 
 Run Diana from this same root. Reindex after changing notes or sources.
 
-> Quick hint: consider adding `diana index` as a precommit hook.
+> Quick hint: consider adding `diana index` as a pre-commit hook.
 
 <p>&#8202;</p>
 
