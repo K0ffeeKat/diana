@@ -11,9 +11,9 @@
 
 ### Search for relevant sections and read only what you need.
 
-Uses SQLite FTS5, without embeddings or a remote search service.
+Backed by SQLite FTS5 and a selective indexing engine, Diana helps agents navigate large document collections with precision. It aims to reduce token usage and keep the context window uncluttered.
 
-Diana **never** edits source notes. Maintain your documents yourself or use an agent for that - Diana will provide knowledge. Good luck, 47.
+> Good luck, 47.
 
 <p>&#8202;</p>
 
