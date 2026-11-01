@@ -54,18 +54,26 @@ describe("loadWorkspace", () => {
     await expect(loadWorkspace(directory)).rejects.toThrow(expectedError);
   });
 
-  it("throws a clear error for invalid configuration shape", async () => {
+  it.each([
+    { version: 2, sources: { someKey: "someValue" } },
+    {
+      version: 1,
+      sources: [
+        {
+          path: "notes",
+          include: ["**/*.md"],
+          exclude: [],
+          autoReindex: "true",
+        },
+      ],
+    },
+  ])("rejects invalid configuration %#", async (badConfig) => {
     const configPath = join(directory, configFileName);
-    const expectedError = invalidConfigError(configPath);
-
-    const badConfig = {
-      version: 2,
-      sources: { someKey: "someValue" },
-    };
-
     await writeFile(configPath, JSON.stringify(badConfig));
 
-    await expect(loadWorkspace(directory)).rejects.toThrow(expectedError);
+    await expect(loadWorkspace(directory)).rejects.toThrow(
+      invalidConfigError(configPath)
+    );
   });
 
   it("merges sources from an optional local config", async () => {

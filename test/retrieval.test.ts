@@ -1,6 +1,7 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -48,6 +49,22 @@ describe("CLI retrieval behavior", () => {
     await writeFile(join(directory, "notes", path), content);
   }
 
+  function setCacheSchemaVersion(version: number): number {
+    // Seed an incompatible cache; assertions still use the CLI.
+    const database = new DatabaseSync(
+      join(directory, ".diana", "index.sqlite")
+    );
+    try {
+      const previous = database.prepare("PRAGMA user_version").get() as {
+        user_version: number;
+      };
+      database.exec(`PRAGMA user_version = ${version}`);
+      return previous.user_version;
+    } finally {
+      database.close();
+    }
+  }
+
   beforeEach(async () => {
     directory = await createTempTestDir();
     cli("init");
@@ -56,6 +73,139 @@ describe("CLI retrieval behavior", () => {
   });
 
   afterEach(async () => await removeTestDir(directory));
+
+  it("refreshes opted-in local sources while leaving project sources cached until explicit indexing", async () => {
+    const externalDirectory = await createTempTestDir();
+    const personalNote = join(externalDirectory, "personal.md");
+
+    try {
+      await note("manual.md", "Papaya.");
+      await writeFile(personalNote, "Guava.");
+      await writeFile(
+        join(directory, ".diana", "local.config.json"),
+        JSON.stringify({
+          version: 1,
+          sources: [
+            {
+              path: externalDirectory,
+              include: ["**/*.md"],
+              exclude: [],
+              autoReindex: true,
+            },
+            // The shared entry wins over this duplicate opt-in.
+            {
+              path: "notes",
+              include: ["**/*.md"],
+              exclude: [],
+              autoReindex: true,
+            },
+          ],
+        })
+      );
+      cli("index");
+      expect(search("guava")).toHaveLength(1);
+
+      await note("manual.md", "Lychee.");
+      await writeFile(personalNote, "Tamarind.");
+      expect(search("guava")).toEqual([]);
+      expect(search("tamarind")).toHaveLength(1);
+      expect(search("papaya")).toHaveLength(1);
+      expect(search("lychee")).toEqual([]);
+
+      // An unreadable-as-text manual note must not break automatic refresh.
+      await writeFile(
+        join(directory, "notes", "manual.md"),
+        Buffer.from([0xff])
+      );
+      expect(search("tamarind")).toHaveLength(1);
+
+      await note("manual.md", "Lychee.");
+      cli("index");
+      expect(search("papaya")).toEqual([]);
+      expect(search("lychee")).toHaveLength(1);
+
+      await rm(personalNote);
+      expect(search("tamarind")).toEqual([]);
+      expect(search("lychee")).toHaveLength(1);
+    } finally {
+      await removeTestDir(externalDirectory);
+    }
+  });
+
+  it("fails search and rolls back all refresh and cleanup changes when an opted-in source fails", async () => {
+    await note("note.md", "Papaya.");
+    for (const [path, content] of [
+      ["later", "Guava."],
+      ["removed", "Lychee."],
+    ] as const) {
+      await mkdir(join(directory, path));
+      await writeFile(join(directory, path, "note.md"), content);
+    }
+    const sources: DianaConfig["sources"] = [
+      { path: "notes", include: ["**/*.md"], exclude: [], autoReindex: true },
+      { path: "later", include: ["**/*.md"], exclude: [], autoReindex: true },
+      {
+        path: "removed",
+        include: ["**/*.md"],
+        exclude: [],
+        autoReindex: false,
+      },
+    ];
+    await configure(sources);
+    cli("index");
+
+    await note("note.md", "Tamarind.");
+    await writeFile(join(directory, "later", "note.md"), Buffer.from([0xff]));
+    await configure(sources.slice(0, 2));
+    const result = spawnSync(process.execPath, [cliPath, "search", "papaya"], {
+      cwd: directory,
+      encoding: "utf8",
+      timeout: 10_000,
+    });
+    expect(result.error).toBeUndefined();
+    expect(result.signal).toBeNull();
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("not valid UTF-8");
+
+    // Disable refresh and restore the removed source to inspect the last
+    // successful state through search, without querying database internals.
+    await configure(
+      sources.map((source) => ({ ...source, autoReindex: false }))
+    );
+    expect(search("papaya")).toHaveLength(1);
+    expect(search("tamarind")).toEqual([]);
+    expect(search("guava")).toHaveLength(1);
+    expect(search("lychee")).toHaveLength(1);
+
+    await writeFile(join(directory, "later", "note.md"), "Guava.");
+    await configure(sources.slice(0, 2));
+    expect(search("tamarind")).toHaveLength(1);
+    expect(search("papaya")).toEqual([]);
+    expect(search("lychee")).toEqual([]);
+  });
+
+  it("requires explicit indexing for an outdated schema without discarding cached sources", async () => {
+    await note("manual.md", "Papaya.");
+    cli("index");
+    await note("manual.md", "Lychee.");
+    const originalVersion = setCacheSchemaVersion(0);
+
+    expect(() => search("papaya")).toThrow(
+      "Index schema changed. Run diana index to rebuild it."
+    );
+
+    // The tables themselves are current: undo the fixture's version change
+    // to verify that the failed search left the original cache intact.
+    setCacheSchemaVersion(originalVersion);
+    expect(search("papaya")).toHaveLength(1);
+    expect(search("lychee")).toEqual([]);
+
+    setCacheSchemaVersion(0);
+    cli("index");
+    expect(search("papaya")).toEqual([]);
+    expect(search("lychee")).toHaveLength(1);
+  });
 
   it("replaces all old sections when a document changes and stays stable on reindex", async () => {
     await note(
@@ -106,7 +256,7 @@ describe("CLI retrieval behavior", () => {
     expect(search("lychee")).toEqual(keptResults);
   });
 
-  it("removes unconfigured sources and can index them again unchanged", async () => {
+  it("removes unconfigured sources during search and can index them again unchanged", async () => {
     await mkdir(join(directory, "other"));
     await note("shared.md", "# Kept\n\nLychee.\n");
     await writeFile(
@@ -125,7 +275,6 @@ describe("CLI retrieval behavior", () => {
     expect(keptResults).toHaveLength(1);
 
     await configure(sources.slice(0, 1));
-    cli("index");
     expect(search("papaya")).toEqual([]);
     expect(search("lychee")).toEqual(keptResults);
 
@@ -133,6 +282,10 @@ describe("CLI retrieval behavior", () => {
     cli("index");
     expect(search("papaya")).toEqual(removedResults);
     expect(search("lychee")).toEqual(keptResults);
+
+    await configure([]);
+    expect(search("papaya")).toEqual([]);
+    expect(search("lychee")).toEqual([]);
   });
 
   it("returns distinct readable anchors for repeated and normalized duplicate headings", async () => {
@@ -256,7 +409,7 @@ describe("CLI retrieval behavior", () => {
     }
   });
 
-  it("removes old matches when include/exclude patterns change", async () => {
+  it("refreshes changed include/exclude patterns when a project source opts in", async () => {
     await mkdir(join(directory, "notes", "nested"));
     await note("root.md", "Boundaryterm.");
     await note("nested/allowed.md", "Boundaryterm.");
@@ -265,9 +418,13 @@ describe("CLI retrieval behavior", () => {
     expect(search("boundaryterm")).toHaveLength(3);
 
     await configure([
-      { path: "notes", include: ["nested/*.md"], exclude: ["**/blocked.md"] },
+      {
+        path: "notes",
+        include: ["nested/*.md"],
+        exclude: ["**/blocked.md"],
+        autoReindex: true,
+      },
     ]);
-    cli("index");
     expect(search("boundaryterm")).toEqual([
       expect.objectContaining({ path: "nested/allowed.md" }),
     ]);

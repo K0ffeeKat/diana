@@ -1,6 +1,8 @@
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
+import { updateIndex } from "../indexer.js";
+import { resolveSources } from "../sources.js";
 import { WORKSPACE_CONSTANTS, loadWorkspace } from "../workspace.js";
 import { pathExists } from "../utils/pathExists.js";
 
@@ -36,6 +38,8 @@ export async function searchWorkspace(
   if (!(await pathExists(databasePath))) {
     throw new Error(indexNotFoundError);
   }
+
+  await updateIndex(databasePath, await resolveSources(workspace), "auto");
 
   const database = new DatabaseSync(databasePath, { readOnly: true });
 

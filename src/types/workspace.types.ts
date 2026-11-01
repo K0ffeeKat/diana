@@ -4,6 +4,7 @@ export const sourceSchema = z.object({
   path: z.string().min(1),
   include: z.array(z.string()),
   exclude: z.array(z.string()),
+  autoReindex: z.boolean().optional(),
 });
 
 export const configSchema = z.object({

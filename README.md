@@ -39,7 +39,7 @@ diana init
 diana index
 ```
 
-Run Diana from this same root. Reindex after changing notes or sources.
+Run Diana from this same root. `diana index` refreshes every configured source.
 
 > Quick hint: consider adding `diana index` as a pre-commit hook.
 
@@ -89,13 +89,18 @@ For example, `.diana/local.config.json` can point to a personal source directory
     {
       "path": "/Users/you/Documents/personal-notes",
       "include": ["**/*.md"],
-      "exclude": []
+      "exclude": [],
+      "autoReindex": true
     }
   ]
 }
 ```
 
-Replace the path with your source directory's absolute path, then run `diana index`.
+Replace the path with your source directory's absolute path, then run `diana index` once.
+
+- `autoReindex` - refresh this source before each search. Useful for sources updated independently of your project. Defaults to false.
+
+> 💡 Prefer pre-commit/post-merge hooks when commit-level freshness is enough. Use autoReindex when searches should also pick up uncommitted changes; it reads and hashes the source’s included files on every search.
 
 **Keep the generated `.diana/.gitignore`.** It excludes your local config and index, helping prevent personal paths and cached note content from being committed. Git ignore rules aren't access controls; review both configs in unfamiliar projects. See [security and privacy](docs/security.md).
 
@@ -153,9 +158,9 @@ Keep editing in Obsidian as usual. Diana indexes the Markdown, skips hidden entr
 
 - **Command not found:** check the npm installation and your PATH. Installing a skill alone doesn't install the CLI.
 - **No configuration:** run from the project root, where you ran `diana init`.
-- **No sources/index, or stale results:** add a source, check its patterns, and run `diana index`. Search uses cached content until reindexing.
+- **No sources/index, outdated schema, or stale results:** add a source if needed, check its patterns, and run `diana index`. Automatic refresh still needs an initial, compatible index.
 - **Source outside project:** put it in the local config, not the project config.
 - **Section not found:** reindex for current anchors; omit `--section` for headingless notes or pre-heading text.
 - **File too large:** split notes larger than 1 MiB; requesting a section doesn't bypass this limit.
 
-If you remove every source, indexing refuses the empty config. With no Diana command running, delete only `.diana/index.sqlite` to discard the old cache; preserve your local config.
+Removed sources disappear from cached results on the next successful search, even if no sources remain. To discard the cache entirely, stop Diana commands and delete only `.diana/index.sqlite`; preserve your local config.

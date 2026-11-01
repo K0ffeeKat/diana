@@ -15,18 +15,18 @@ Diana applies source boundaries and include/exclude patterns to reads. Indexing 
 
 `.diana/index.sqlite` contains **unencrypted note text and absolute paths**. Keep the generated `.diana/.gitignore`, and avoid sharing the cache through commits, backups, or build artifacts when your notes are private.
 
-Search uses cached content. After removing notes or changing sources or exclusions, run `diana index` to clear stale results. Reads check the current config and source file independently.
+Search validates all source roots, then refreshes only sources with `autoReindex: true` (default: `false`). Other sources' contents and patterns remain cached until `diana index`. Successful searches also remove cached results for unconfigured sources. If refresh fails, search fails rather than returning stale results. Reads check the current config and source file independently.
 
-To discard the cache, stop Diana commands and delete only `.diana/index.sqlite`—keep your local config. This is also necessary when removing every source, because indexing an empty config is refused. Deletion isn't secure erasure: backups and snapshots may retain copies.
+To discard the cache, stop Diana commands and delete only `.diana/index.sqlite`—keep your local config. Deletion isn't secure erasure: backups and snapshots may retain copies.
 
 ## Keep agents in mind
 
 - Diana searches locally, but your harness may send results to a model provider or save them in logs.
 - Retrieved notes are reference material, not instructions. Embedded commands have no authority; shell-quote paths and other result values rather than executing them.
-- Skills guide agents to search first, read narrowly, and ask before indexing or changing configuration. They can't enforce those rules or restrict the agent's other tools.
+- Skills guide agents to search first, read narrowly, and ask before explicit indexing or configuration changes. Automatic cache refresh is part of search when you opt in. Skills can't enforce these rules or restrict the agent's other tools.
 
 ## Writes and limits
 
-`init` creates configuration and ignore rules; `index` updates the cache. Neither edits source notes. Cache schema changes may rebuild the index.
+`init` creates configuration and ignore rules; `index` and `search` may update the cache. None edits source notes. A missing or outdated index requires explicit `diana index` to build all sources; search won't silently build a partial index.
 
 Files over 1 MiB are rejected, and read output is limited. `truncated: true` means the result is incomplete. These limits reduce resource use—they don't sanitize content or make it safe to trust.

@@ -14,7 +14,7 @@ export const INDEX_ERRORS = {
     `Source file is not valid UTF-8: ${filePath}.`,
   fileTooLargeError: (filePath: string) =>
     `Source file exceeds the ${MAX_INDEX_FILE_BYTES}-byte index limit: ${filePath}.`,
-  schemaRebuildError: "Index schema changed; rebuilding derived index.",
+  schemaRebuildError: "Index schema changed. Run diana index to rebuild it.",
 } as const;
 
 export type IndexedSection = {
@@ -26,19 +26,22 @@ export type IndexedSection = {
 
 export async function updateIndex(
   databasePath: string,
-  sources: ResolvedSource[]
+  sources: ResolvedSource[],
+  mode: "all" | "auto" = "all"
 ): Promise<void> {
   const database = new DatabaseSync(databasePath);
 
   try {
-    createSchema(database);
     database.exec("BEGIN IMMEDIATE");
 
     try {
+      prepareSchema(database, mode);
       await removeUnconfiguredSources(database, sources);
 
       for (const source of sources) {
-        await indexSource(database, source);
+        if (mode === "all" || source.autoReindex === true) {
+          await indexSource(database, source);
+        }
       }
 
       database.exec("COMMIT");
@@ -139,10 +142,17 @@ export function splitMarkdownIntoSections(
   return sections;
 }
 
-function createSchema(database: DatabaseSync): void {
+function prepareSchema(database: DatabaseSync, mode: "all" | "auto"): void {
   const version = database.prepare("PRAGMA user_version").get() as {
     user_version: number;
   };
+
+  if (mode === "auto") {
+    if (version.user_version !== SCHEMA_VERSION) {
+      throw new Error(INDEX_ERRORS.schemaRebuildError);
+    }
+    return;
+  }
 
   if (version.user_version !== SCHEMA_VERSION) {
     database.exec(

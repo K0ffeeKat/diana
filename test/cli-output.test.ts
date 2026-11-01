@@ -24,7 +24,7 @@ describe("CLI output and exit codes", () => {
     return result;
   }
 
-  async function configureWorkspace(): Promise<void> {
+  async function configureWorkspace(autoReindex?: boolean): Promise<void> {
     expect(cli("init").status).toBe(0);
     await mkdir(join(directory, "notes"));
     await writeFile(
@@ -35,7 +35,9 @@ describe("CLI output and exit codes", () => {
       join(directory, "diana.config.json"),
       JSON.stringify({
         version: 1,
-        sources: [{ path: "notes", include: ["**/*.md"], exclude: [] }],
+        sources: [
+          { path: "notes", include: ["**/*.md"], exclude: [], autoReindex },
+        ],
       })
     );
   }
@@ -110,7 +112,7 @@ describe("CLI output and exit codes", () => {
   );
 
   it("returns only the existing search-result JSON schema on stdout", async () => {
-    await configureWorkspace();
+    await configureWorkspace(true);
     expect(cli("index").status).toBe(0);
     const result = cli("search", "tamarind");
 
@@ -193,8 +195,8 @@ describe("CLI output and exit codes", () => {
     }
   );
 
-  it("reports an absent index without emitting JSON or a success message", async () => {
-    await configureWorkspace();
+  it("requires an initial index even when automatic reindexing is enabled", async () => {
+    await configureWorkspace(true);
     const result = cli("search", "tamarind");
 
     expect(result.status).toBe(1);
