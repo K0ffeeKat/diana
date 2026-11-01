@@ -1,7 +1,10 @@
 {
   "name": "@koffeekat/diana",
-  "version": "0.1.0-alpha.1",
-  "private": true,
+  "version": "0.1.0-beta.1",
+  "publishConfig": {
+    "access": "public",
+    "tag": "beta"
+  },
   "description": "Fast, lightweight data search layer for agents.",
   "keywords": [
     "diana",
@@ -15,22 +18,31 @@
   ],
   "author": "koffeekat",
   "type": "module",
+  "license": "MIT",
   "scripts": {
     "pretest": "npm run build",
     "build": "tsc",
+    "prepack": "npm run build",
     "check": "tsc --project tsconfig.test.json",
     "test": "vitest run",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
   "bin": {
-    "diana": "./dist/cli.js"
+    "diana": "dist/cli.js"
   },
   "pi": {
     "skills": [
       "./skills"
     ]
   },
+  "files": [
+    "dist/",
+    "skills/",
+    ".claude-plugin/",
+    "docs/security.md",
+    "img/"
+  ],
   "devDependencies": {
     "@types/node": "^26.6.4",
     "prettier": "^3.9.9",

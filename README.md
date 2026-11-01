@@ -20,7 +20,7 @@ Backed by SQLite FTS5 and a selective indexing engine, Diana helps agents naviga
 Requires **Node.js >=22.13.0**.
 
 ```sh
-npm install -g @koffeekat/diana
+npm install -g @koffeekat/diana@beta
 ```
 
 <p>&#8202;</p>
@@ -113,7 +113,7 @@ Skills teach agents to search first and read only relevant sections. Install the
 **Pi**
 
 ```sh
-pi install npm:@koffeekat/diana
+pi install npm:@koffeekat/diana@beta
 ```
 
 Reload with `/reload` if needed; invoke `/skill:diana`.
