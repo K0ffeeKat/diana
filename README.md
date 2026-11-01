@@ -13,8 +13,6 @@
 
 Backed by SQLite FTS5 and a selective indexing engine, Diana helps agents navigate large document collections with precision. It aims to reduce token usage and keep the context window uncluttered.
 
-> Good luck, 47.
-
 <p>&#8202;</p>
 
 ## Installation
@@ -161,9 +159,3 @@ Keep editing in Obsidian as usual. Diana indexes the Markdown, skips hidden entr
 - **File too large:** split notes larger than 1 MiB; requesting a section doesn't bypass this limit.
 
 If you remove every source, indexing refuses the empty config. With no Diana command running, delete only `.diana/index.sqlite` to discard the old cache; preserve your local config.
-
-<div align="center">
-  <p>&#8202;</p>
-  <h4 align="center">Diana is an independent project and is not affiliated with, endorsed by, or sponsored by IO Interactive. References to HITMAN are an homage; all associated trademarks belong to their respective owners.</h4>
-  <p>&#8202;</p>
-</div>
