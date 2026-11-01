@@ -1,6 +1,6 @@
 {
   "name": "@koffeekat/diana",
-  "version": "0.1.0-beta.1",
+  "version": "0.1.0-beta.2",
   "publishConfig": {
     "access": "public",
     "tag": "beta"
@@ -19,6 +19,10 @@
   "author": "koffeekat",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/K0ffeeKat/diana.git"
+  },
   "scripts": {
     "pretest": "npm run build",
     "build": "tsc",

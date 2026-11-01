@@ -1,5 +1,5 @@
 <div>
-  <img alt="diana-banner" src="./img/diana-banner.webp" />
+  <img alt="diana-banner" src="https://raw.githubusercontent.com/K0ffeeKat/diana/main/img/diana-banner.webp" />
 </div>
 
 <div align="center">

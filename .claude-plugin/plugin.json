@@ -1,6 +1,6 @@
 {
   "name": "diana",
-  "version": "0.1.0-beta.1",
+  "version": "0.1.0-beta.2",
   "description": "Search local Markdown knowledge through the read-only Diana CLI.",
   "author": {
     "name": "KoffeeKat"
